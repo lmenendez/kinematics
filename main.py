@@ -28,10 +28,12 @@ def connect(port):
 
 
 # Establece la posición de las articulaciones expresadas en radianes
-def set_joints(q):
-    ret_code = sim.simxSetJointTargetPosition(clientID, joint1, q[0], sim.simx_opmode_oneshot)
-    ret_code = sim.simxSetJointTargetPosition(clientID, joint2, q[1], sim.simx_opmode_oneshot)
-    ret_code = sim.simxSetJointTargetPosition(clientID, joint3, q[2], sim.simx_opmode_oneshot)
+def setJoints(J, Q):
+    retCode = sim.simxSetJointTargetPosition(clientID, J[0], Q[0], sim.simx_opmode_oneshot)
+    retCode = sim.simxSetJointTargetPosition(clientID, J[1], Q[1], sim.simx_opmode_oneshot)
+    retCode = sim.simxSetJointTargetPosition(clientID, J[2], Q[2], sim.simx_opmode_oneshot)
+
+    return retCode
 
 
 # Definimos una función para construir las matrices de transformación
@@ -75,10 +77,23 @@ def connect_coppelia(port):
 
     retCode, CoM = sim.simxGetObjectHandle(clientID, 'CoM', sim.simx_opmode_blocking)
     retCode, tip = sim.simxGetObjectHandle(clientID, 'tip', sim.simx_opmode_blocking)
-    retCode, joint1 = sim.simxGetObjectHandle(clientID, 'MTB_joint1_1', sim.simx_opmode_blocking)
-    retCode, joint2 = sim.simxGetObjectHandle(clientID, 'MTB_joint2_1', sim.simx_opmode_blocking)
-    retCode, joint3 = sim.simxGetObjectHandle(clientID, 'MTB_joint3_1', sim.simx_opmode_blocking)
-    return clientID, CoM, tip, joint1, joint2, joint3
+
+    retCode, joint1 = sim.simxGetObjectHandle(clientID, 'MTB_joint1', sim.simx_opmode_blocking)
+    retCode, joint2 = sim.simxGetObjectHandle(clientID, 'MTB_joint2', sim.simx_opmode_blocking)
+    retCode, joint3 = sim.simxGetObjectHandle(clientID, 'MTB_joint3', sim.simx_opmode_blocking)
+
+    retCode, joint4 = sim.simxGetObjectHandle(clientID, 'MTB_joint4', sim.simx_opmode_blocking)
+    retCode, joint5 = sim.simxGetObjectHandle(clientID, 'MTB_joint5', sim.simx_opmode_blocking)
+    retCode, joint6 = sim.simxGetObjectHandle(clientID, 'MTB_joint6', sim.simx_opmode_blocking)
+
+    retCode, joint7 = sim.simxGetObjectHandle(clientID, 'MTB_joint7', sim.simx_opmode_blocking)
+    retCode, joint8 = sim.simxGetObjectHandle(clientID, 'MTB_joint8', sim.simx_opmode_blocking)
+    retCode, joint9 = sim.simxGetObjectHandle(clientID, 'MTB_joint9', sim.simx_opmode_blocking)
+
+    retCode, joint10 = sim.simxGetObjectHandle(clientID, 'MTB_joint10', sim.simx_opmode_blocking)
+    retCode, joint11 = sim.simxGetObjectHandle(clientID, 'MTB_joint11', sim.simx_opmode_blocking)
+    retCode, joint12 = sim.simxGetObjectHandle(clientID, 'MTB_joint12', sim.simx_opmode_blocking)
+    return clientID, CoM, tip, joint1, joint2, joint3, joint4, joint5, joint6, joint7, joint8, joint9, joint10, joint11, joint12
 
 
 def get_CoM_position_and_orientation(handle):
@@ -140,7 +155,7 @@ def forward_kinematics(P, O, R):
     # transformación debido a valores de la IMU con rotaciones consecutivas
     A00 = rx.subs({qx: a}) * ry.subs({qy: b}) * rz.subs({qz: c})
 
-    # Matriz de desplazamiento del CoM hacia la primera articulación de la pierna delantera derecha
+    # Matriz de desplazamiento pata2 del CoM hacia la primera articulación de la pierna delantera derecha
     T0 = sp.Matrix([[1, 0, 0, -54e-3], [0, 1, 0, -121.5e-3], [0, 0, 1, -28.5e-3], [0, 0, 0, 1]])
 
     # Transformacion desde la orientación del CoM a la primera articulación
@@ -250,6 +265,87 @@ def inverse_kinematics_num(P, O, Pf):
     return np.array(q).astype(np.float64)
 
 
+def mueve_pata(pata, o_CoM, pos):
+    # Se prueba IK Basic simulation by user Florian Wilk
+    # https://gitlab.com/custom_robots/spotmicroai/simulation/-/tree/master/Basic%20simulation%20by%20user%20Florian%20Wilk/Kinematics
+    # https://gitlab.com/custom_robots/spotmicroai/simulation/-/blob/master/Basic%20simulation%20by%20user%20Florian%20Wilk/Kinematics/Kinematic.ipynb
+
+    l1 = 39.97e-3
+    l2 = 22.5e-3
+    l3 = 67.5e-3
+    l4 = 90.5e-3
+
+    Pt = transform_p(pos[0], pos[1], pos[2])
+
+    # Giro de la posición original (*Florian_OK) hacia la nueva posición (*Florian_rotado)
+    # respecto del frame del mundo: -90º sobre X, para poder especificar el punto destino
+    # referenciado al frame del mundo
+
+    if pata == 1:
+        # PDI
+        [a, b, c] = np.radians([90, 0, -180])
+        T_pata = sp.Matrix([[1, 0, 0, +54e-3], [0, 1, 0, -121.5e-3], [0, 0, 1, -28.5e-3], [0, 0, 0, 1]])
+        s = 1
+    elif pata == 2:
+        # PDD
+        [a, b, c] = np.radians([-90, 0, 0])
+        T_pata = sp.Matrix([[1, 0, 0, -54e-3], [0, 1, 0, -121.5e-3], [0, 0, 1, -28.5e-3], [0, 0, 0, 1]])
+        s = -1
+    elif pata == 3:
+        # PTD
+        [a, b, c] = np.radians([-90, 0, 0])
+        T_pata = sp.Matrix([[1, 0, 0, -54e-3], [0, 1, 0, +121.5e-3], [0, 0, 1, -28.5e-3], [0, 0, 0, 1]])
+        s = -1
+    else:
+        # PTI
+        [a, b, c] = np.radians([90, 0, -180])
+        T_pata = sp.Matrix([[1, 0, 0, +54e-3], [0, 1, 0, +121.5e-3], [0, 0, 1, -28.5e-3], [0, 0, 0, 1]])
+        s = 1
+
+    Rx = sp.Matrix([[1, 0, 0, 0], [0, cos(a), -sin(a), 0], [0, sin(a), cos(a), 0], [0, 0, 0, 1]])
+    Ry = sp.Matrix([[cos(b), 0, sin(b), 0], [0, 1, 0, 0], [-sin(b), 0, cos(b), 0], [0, 0, 0, 1]])
+    Rz = sp.Matrix([[cos(c), -sin(c), 0, 0], [sin(c), cos(c), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+
+    # Orientación del CoM
+    qx, qy, qz = o_CoM
+    RoX = sp.Matrix([[1, 0, 0, 0], [0, cos(qx), -sin(qx), 0], [0, sin(qx), cos(qx), 0], [0, 0, 0, 1]])
+    RoY = sp.Matrix([[cos(qy), 0, sin(qy), 0], [0, 1, 0, 0], [-sin(qy), 0, cos(qy), 0], [0, 0, 0, 1]])
+    RoZ = sp.Matrix([[cos(qz), -sin(qz), 0, 0], [sin(qz), cos(qz), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+
+    # Se rota la traslación según los ángulos de inclinación
+    # Traslación compuesta: Orientación X,Y,Z
+    T = RoX * RoY * RoZ * T_pata
+
+    # Orientación de la figura y orientación según IMU
+    Pi = Rz.inv() * Rx.inv() * RoZ.inv() * RoY.inv() * RoX.inv() * (Pt - T)
+
+    [x, y, z] = np.float64([Pi[0, 3], Pi[1, 3], Pi[2, 3]])
+
+    F = sqrt(x ** 2 + y ** 2 - l1 ** 2)
+    G = F - l2
+    H = sqrt(G ** 2 + z ** 2)
+
+    theta1 = atan2(y, x) - atan2(F, -l1)
+
+    D = (H ** 2 - l3 ** 2 - l4 ** 2) / (2 * l3 * l4)
+    theta3 = acos(D) * s
+
+    theta2 = atan2(z, G) - atan2(l4 * sin(theta3), l3 + l4 * cos(theta3))
+
+    if pata == 1:
+        # PDI
+        setJoints([joint1, joint2, joint3], [theta1, theta2, theta3])
+    elif pata == 2:
+        # PDD
+        setJoints([joint4, joint5, joint6], [theta1, theta2, theta3])
+    elif pata == 3:
+        # PTD
+        setJoints([joint7, joint8, joint9], [theta1, theta2, theta3])
+    else:
+        # PTI
+        setJoints([joint10, joint11, joint12], [theta1, theta2, theta3])
+
+    return ([theta1, theta2, theta3])
 
 # Realiza la cinemática inversa del esquema CoppeliaSIM MTB_IK_v4_Florian_rotado_trasladado.ttt
 # l1 = 25e-3, l2 = 20e-3, l3 = 80e-3, l4 = 80e-3
@@ -321,23 +417,24 @@ if __name__ == '__main__':
 
 
 # Requerimos los manejadores para las articulaciones y el Dummy
-clientID, CoM, tip, joint1, joint2, joint3 = connect_coppelia(19999)
+clientID, CoM, tip, joint1, joint2, joint3, joint4, joint5, joint6, joint7, joint8, joint9, joint10, joint11, joint12 = connect_coppelia(19999)
 
-r, p, o = get_CoM_position_and_orientation(CoM)
+r, p_CoM, o_CoM = get_CoM_position_and_orientation(CoM)
 
 # Posicionamos en valores iniciales
 #set_joints([0, 0, 0])
 #time.sleep(1)
 
-set_joints([radians(45),radians(45),radians(45)])
+#set_joints([radians(45),radians(45),radians(45)])
 # Altura desde el CoM al suelo
-H = p[2]
+H = p_CoM[2]
 
-[x, y, z] = forward_kinematics(p, o, np.deg2rad([45,45,45]))
+#[x, y, z] = forward_kinematics(p_CoM, o_CoM, np.deg2rad([45, 45, 45]))
+#setJoints([joint4,joint5, joint6],np.deg2rad([45,45,45]))
 
 # z + H muestra la altura respecto al suelo si posición del CoM se establace como [0,0,0]
 # en otro caso, z es la altura sobre el suelo, ya que la posición inicial ya tiene la altura
-print([x, y, z])
+#print([x, y, z])
 
 # z - H, siendo z la altura sobre el suelo (+) o bajo el suelo (-)
 # cuando p tiene altura se pone z directamente
@@ -346,14 +443,27 @@ print([x, y, z])
 #set_joints(q)
 #time.sleep(1)
 
-set_joints([radians(45),radians(45),radians(45)])
-time.sleep(1)
 
-q = inverse_kinematics_geo(p,o, [-21e-3, -19e-3, -H + 0.26])
-set_joints(q)
-print (H)
+#q = inverse_kinematics_geo(p,o, [-21e-3, -19e-3, -H + 0.26])
+#set_joints(q)
 
+[x, y, z] = forward_kinematics(p_CoM, o_CoM, np.deg2rad([0, 30, -90]))
+#[x,y,z] = [-0.0075, 0.0168, -H + 0.17]
+#mueve_pata(2, o_CoM, [x, y, -H + 0])
 
+#[x,y,z] = [-0.094, -0.1180, 0.0084]
+#mueve_pata(2, o_CoM, [x, y, -H + 0.0084])
 
+#[x,y,z] = [0.094, -0.1180, 0.0084]
+#mueve_pata(1, o_CoM, [x, y, -H + 0.03])
 
+#[x,y,z] = [-0.094, +0.13, 0.0084]
+#mueve_pata(3, o_CoM, [x, y, -H + 0.04])
 
+#[x,y,z] = [0.094, +0.13, 0.0084]
+#mueve_pata(4, o_CoM, [x, y, -H - 0.02])
+
+[x,y,z] = [-0.0075, 0.0168, 0.17]
+Q = mueve_pata(1, o_CoM, [x, y, -H + z])
+
+print (np.rad2deg(Q))
